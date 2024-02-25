@@ -2,7 +2,9 @@ package nragentreceiver
 
 import (
 	"io"
+	"log"
 	"net/http"
+	"os"
 )
 
 type ConnectInfo struct {
@@ -96,11 +98,6 @@ type EventHarvestConfig struct {
 		SpanEvents   *uint `json:"span_event_data,omitempty"`
 	} `json:"harvest_limits"`
 }
-
-// Corrected the logging import and removed duplicate error handling.
-import (
-	"log"
-)
 
 func (nra *NRagentReceiver) handleRequest(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
