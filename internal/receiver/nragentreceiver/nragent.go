@@ -1,6 +1,22 @@
 package nragentreceiver
 
 import (
+		"bytes"
+		"compress/gzip"
+		"compress/zlib"
+		"encoding/json"
+		"errors"
+		"fmt"
+		"io"
+		"log"
+		"net"
+		"net/http"
+		"net/url"
+		"os"
+		"path/filepath"
+		"strings"
+		"sync"
+	
 	"net/http"
 )
 
@@ -16,24 +32,6 @@ func (nra *NRagentReceiver) Start() {
 	http.HandleFunc("/", nra.handleRequest)
 	http.ListenAndServe(nra.config.Endpoint, nil)
 }
-import (
-	"bytes"
-	"compress/gzip"
-	"compress/zlib"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
-	"io/ioutil"
-	"log"
-	"net"
-	"net/http"
-	"net/url"
-	"os"
-	"path/filepath"
-	"strings"
-	"sync"
-)
 
 var errNextConsumerRespBody = []byte(`"Internal Server Error"`)
 
