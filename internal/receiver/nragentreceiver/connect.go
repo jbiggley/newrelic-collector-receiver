@@ -99,11 +99,24 @@ type EventHarvestConfig struct {
 
 func (nra *NRagentReceiver) handleRequest(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
 	if err != nil {
+		log.Printf("Error reading request body: %v", err)
 		http.Error(w, "Error reading request body", http.StatusInternalServerError)
 		return
 	}
-	err = io.WriterTo(nra.config.OutputFilePath, body, 0644)
+	file, err := os.OpenFile(nra.config.OutputFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Printf("Error opening file: %v", err)
+		http.Error(w, "Error writing data to file", http.StatusInternalServerError)
+		return
+	}
+	defer file.Close()
+	if _, err := file.Write(body); err != nil {
+		log.Printf("Error writing to file: %v", err)
+		http.Error(w, "Error writing data to file", http.StatusInternalServerError)
+		return
+	}
 	if err != nil {
 		http.Error(w, "Error writing data to file", http.StatusInternalServerError)
 		return

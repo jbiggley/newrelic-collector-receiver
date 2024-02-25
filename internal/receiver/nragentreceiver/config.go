@@ -6,6 +6,7 @@ import (
 )
 
 // Config defines configuration for Zipkin receiver.
+// Config defines configuration for the NR agent receiver.
 type Config struct {
 	config.ReceiverSettings `mapstructure:",squash"` // squash ensures fields are correctly decoded in embedded struct
 	// Configures the receiver server protocol.
@@ -16,5 +17,9 @@ var _ config.Receiver = (*Config)(nil)
 
 // Validate checks the receiver configuration is valid
 func (cfg *Config) Validate() error {
+	// Example validation: Ensure Endpoint is not empty
+	if cfg.Endpoint == "" {
+		return errors.New("endpoint cannot be empty")
+	}
 	return nil
 }
