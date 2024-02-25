@@ -13,6 +13,8 @@ type Config struct {
 	config.ReceiverSettings `mapstructure:",squash"` // squash ensures fields are correctly decoded in embedded struct
 	// Configures the receiver server protocol.
 	confighttp.HTTPServerSettings `mapstructure:",squash"` // squash ensures fields are correctly decoded in embedded struct
+	// OutputFilePath is the path to the file where data will be written.
+	OutputFilePath string `mapstructure:"output_file_path"`
 }
 
 var _ config.Receiver = (*Config)(nil)
