@@ -1,6 +1,7 @@
 package nragentreceiver
 
 import (
+	"errors"
 	"go.opentelemetry.io/collector/config"
 	"go.opentelemetry.io/collector/config/confighttp"
 )

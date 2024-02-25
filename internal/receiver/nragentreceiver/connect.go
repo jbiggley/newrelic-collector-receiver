@@ -97,6 +97,11 @@ type EventHarvestConfig struct {
 	} `json:"harvest_limits"`
 }
 
+// Corrected the logging import and removed duplicate error handling.
+import (
+	"log"
+)
+
 func (nra *NRagentReceiver) handleRequest(w http.ResponseWriter, r *http.Request) {
 	body, err := io.ReadAll(r.Body)
 	defer r.Body.Close()

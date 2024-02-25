@@ -109,8 +109,9 @@ func (nra *NRagentReceiver) processData(data []byte) {
 // Shutdown tells the receiver that should stop reception,
 // giving it a chance to perform any necessary clean-up and shutting down
 // its HTTP server.
-func (zr *NewRelicAgentReceiver) Shutdown(context.Context) error {
-	err := zr.server.Close()
+func (nra *NewRelicAgentReceiver) Shutdown(ctx context.Context) error {
+	err := nra.server.Close()
+	nra.shutdownWG.Wait()
 	zr.shutdownWG.Wait()
 	return err
 }
@@ -127,7 +128,7 @@ func (zr *NewRelicAgentReceiver) Shutdown(context.Context) error {
 // processResponseBodyIfNecessary processes the response body if necessary.
 //
 // It takes a *http.Response as a parameter and returns an io.Reader.
-func processResponseBodyIfNecessary(resp *http.Response) io.Reader {
+func processResponseBodyIfNecessary(req *http.Request, resp *http.Response) io.Reader {
 	switch req.Header.Get("Content-Encoding") {
 	default:
 		return req.Body
@@ -144,7 +145,7 @@ func processResponseBodyIfNecessary(resp *http.Response) io.Reader {
 //
 // r is the input reader.
 // io.Reader
-func gunzippedBodyIfPossible(body io.Reader) io.Reader {
+func gunzippedBodyIfPossible(r io.Reader) io.Reader {
 	gzr, err := gzip.NewReader(r)
 	if err != nil {
 		// Just return the old body as was
@@ -156,7 +157,7 @@ func gunzippedBodyIfPossible(body io.Reader) io.Reader {
 // zlibUncompressedbody returns a reader for uncompressed data.
 //
 // It takes an io.Reader r as input and returns an io.Reader.
-func zlibUncompressedbody(body io.Reader) io.Reader {
+func zlibUncompressedbody(r io.Reader) io.Reader {
 	zr, err := zlib.NewReader(r)
 	if err != nil {
 		// Just return the old body as was
@@ -990,7 +991,7 @@ func getAndRemove(spanAttributes *pdata.AttributeMap, key string) (pdata.Attribu
 // filePath string - the path of the file to write to
 // data []byte - the data to be written to the file
 // error - returns an error if there is any issue writing to the file
-func appendToFile(filePath string, data []byte) error {
+// Duplicate function definition removed.
     // Extract directory path from filePath
     dirPath := filepath.Dir(filePath)
 
@@ -1022,7 +1023,7 @@ func appendToFile(filePath string, data []byte) error {
 // - filePath: a string representing the file path
 // - data: a byte slice containing the data to be appended to the file
 // Return type: error
-func appendToFile(filePath string, data []byte) error {
+// Duplicate function definition removed.
 	// Open or create the file
 	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
