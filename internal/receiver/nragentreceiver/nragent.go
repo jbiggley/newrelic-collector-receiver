@@ -46,17 +46,6 @@ type NewRelicAgentReceiver struct {
 	entityGuids  sync.Map
 }
 
-	// Corrected duplicate and misplaced code blocks.
-	server       *http.Server
-	config       *Config
-	httpClient   http.Client
-	redirectHost string
-	proxyToNR    bool
-
-	// per-agent state
-	entityGuids sync.Map
-}
-
 type agentMeta struct {
 	entityGuid string
 	entityName string
@@ -174,7 +163,7 @@ func (nra *NRagentReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	switch method := query.Get("method"); method {
 	case "preconnect":
-		bodyBytes, err := ioutil.ReadAll(r.Body)
+		bodyBytes, err := io.ReadAll(r.Body)
 		if err != nil {
 			log.Printf("Error reading request body: %v", err)
 			http.Error(w, "Failed to read request", http.StatusBadRequest)
@@ -188,7 +177,7 @@ func (nra *NRagentReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		fallthrough
 	case "connect":
-        bodyBytes, err := ioutil.ReadAll(r.Body)
+        bodyBytes, err := io.ReadAll(r.Body)
         if err != nil {
             log.Printf("Error reading request body: %v", err)
             http.Error(w, "Failed to read request", http.StatusBadRequest)
