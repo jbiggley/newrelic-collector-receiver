@@ -108,8 +108,7 @@ func (nra *NewRelicAgentReceiver) Shutdown(ctx context.Context) error {
 	// Assuming these case statements are part of a switch within a function, they need to be correctly placed.
 	// Without the full context of the surrounding function, it's challenging to provide a direct correction.
 	// Please ensure these case statements are moved into the correct switch block within a function.
-	}
-}
+
 
 // processResponseBodyIfNecessary processes the response body if necessary.
 //
