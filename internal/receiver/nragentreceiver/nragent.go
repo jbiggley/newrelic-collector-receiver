@@ -123,7 +123,7 @@ func processResponseBodyIfNecessary(req *http.Response) io.Reader {
 		return zlibUncompressedbody(req.Body)
 	}
 }
-
+ 
 // gunzippedBodyIfPossible returns a reader for the gunzipped content of the input reader if possible. Otherwise, it returns the original input reader.
 //
 // r is the input reader.
