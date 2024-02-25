@@ -127,7 +127,7 @@ func (zr *NewRelicAgentReceiver) Shutdown(context.Context) error {
 // processResponseBodyIfNecessary processes the response body if necessary.
 //
 // It takes a *http.Response as a parameter and returns an io.Reader.
-func processResponseBodyIfNecessary(req *http.Response) io.Reader {
+func processResponseBodyIfNecessary(resp *http.Response) io.Reader {
 	switch req.Header.Get("Content-Encoding") {
 	default:
 		return req.Body
@@ -144,7 +144,7 @@ func processResponseBodyIfNecessary(req *http.Response) io.Reader {
 //
 // r is the input reader.
 // io.Reader
-func gunzippedBodyIfPossible(r io.Reader) io.Reader {
+func gunzippedBodyIfPossible(body io.Reader) io.Reader {
 	gzr, err := gzip.NewReader(r)
 	if err != nil {
 		// Just return the old body as was
@@ -156,7 +156,7 @@ func gunzippedBodyIfPossible(r io.Reader) io.Reader {
 // zlibUncompressedbody returns a reader for uncompressed data.
 //
 // It takes an io.Reader r as input and returns an io.Reader.
-func zlibUncompressedbody(r io.Reader) io.Reader {
+func zlibUncompressedbody(body io.Reader) io.Reader {
 	zr, err := zlib.NewReader(r)
 	if err != nil {
 		// Just return the old body as was
