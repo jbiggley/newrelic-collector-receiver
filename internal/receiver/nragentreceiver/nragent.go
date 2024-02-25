@@ -1020,3 +1020,11 @@ func getAndRemove(spanAttributes *pdata.AttributeMap, key string) (pdata.Attribu
 	}
 	return nil
 }
+func (nra *NRagentReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+    fmt.Printf("-- got request %v", r)
+    fmt.Println()
+
+    query := r.URL.Query()
+    // Correctly placed switch statement within the ServeHTTP method
+    switch method := query.Get("method"); method {
+    // case statements follow...
