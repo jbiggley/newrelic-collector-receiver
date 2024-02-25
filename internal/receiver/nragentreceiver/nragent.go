@@ -11,11 +11,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"log"
 	"math"
 	"net"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 
@@ -67,6 +68,10 @@ func New(config *Config) *NewRelicAgentReceiver {
 	return r
 }
 
+// registerTracesConsumer registers a new traces consumer for the NewRelicAgentReceiver.
+//
+// c consumer.Traces
+// error
 func (nr *NewRelicAgentReceiver) registerTracesConsumer(c consumer.Traces) error {
 	if c == nil {
 		return componenterror.ErrNilNextConsumer
@@ -76,6 +81,10 @@ func (nr *NewRelicAgentReceiver) registerTracesConsumer(c consumer.Traces) error
 	return nil
 }
 
+// registerMetricsConsumer registers a metrics consumer for the New Relic Agent Receiver.
+//
+// c consumer.Metrics
+// error
 func (nr *NewRelicAgentReceiver) registerMetricsConsumer(c consumer.Metrics) error {
 	if c == nil {
 		return componenterror.ErrNilNextConsumer
@@ -116,6 +125,30 @@ func (nr *NewRelicAgentReceiver) Start(_ context.Context, host component.Host) e
 	return nil
 }
 
+// processData is a function where data is processed.
+//
+// It takes a parameter data of type []byte and does not return anything.
+func (nra *NRagentReceiver) processData(data []byte) {
+	// Example function where data is processed
+
+	// Specify the file path
+	filePath := "path/to/your/output/file.txt"
+
+	// Open the file in append mode, create if it does not exist
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Fatalf("Failed to open file: %v", err)
+	}
+	defer file.Close()
+
+	// Write data to file
+	if _, err := file.Write(data); err != nil {
+		log.Fatalf("Failed to write data to file: %v", err)
+	}
+
+	// Continue with the rest of your processing
+}
+
 // Shutdown tells the receiver that should stop reception,
 // giving it a chance to perform any necessary clean-up and shutting down
 // its HTTP server.
@@ -129,7 +162,8 @@ func (zr *NewRelicAgentReceiver) Shutdown(context.Context) error {
 // a compression such as "gzip", "deflate", "zlib", is found, the body will
 // be uncompressed accordingly or return the body untouched if otherwise.
 // Clients such as Zipkin-Java do this behavior e.g.
-//    send "Content-Encoding":"gzip" of the JSON content.
+//
+//	send "Content-Encoding":"gzip" of the JSON content.
 func processBodyIfNecessary(req *http.Request) io.Reader {
 	switch req.Header.Get("Content-Encoding") {
 	default:
@@ -143,6 +177,9 @@ func processBodyIfNecessary(req *http.Request) io.Reader {
 	}
 }
 
+// processResponseBodyIfNecessary processes the response body if necessary.
+//
+// It takes a *http.Response as a parameter and returns an io.Reader.
 func processResponseBodyIfNecessary(req *http.Response) io.Reader {
 	switch req.Header.Get("Content-Encoding") {
 	default:
@@ -156,6 +193,10 @@ func processResponseBodyIfNecessary(req *http.Response) io.Reader {
 	}
 }
 
+// gunzippedBodyIfPossible returns a reader for the gunzipped content of the input reader if possible. Otherwise, it returns the original input reader.
+//
+// r is the input reader.
+// io.Reader
 func gunzippedBodyIfPossible(r io.Reader) io.Reader {
 	gzr, err := gzip.NewReader(r)
 	if err != nil {
@@ -165,6 +206,9 @@ func gunzippedBodyIfPossible(r io.Reader) io.Reader {
 	return gzr
 }
 
+// zlibUncompressedbody returns a reader for uncompressed data.
+//
+// It takes an io.Reader r as input and returns an io.Reader.
 func zlibUncompressedbody(r io.Reader) io.Reader {
 	zr, err := zlib.NewReader(r)
 	if err != nil {
@@ -177,24 +221,45 @@ func zlibUncompressedbody(r io.Reader) io.Reader {
 // The NewRelicAgentReceiver receives telemetry data from New Relic agents as JSON,
 // unmarshals them and sends them along to the nextConsumer.
 func (nr *NewRelicAgentReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	fmt.Printf("-- got request %+v", r)
+	fmt.Printf("-- got request %v", r)
 	fmt.Println()
 
 	query := r.URL.Query()
 
 	switch method := query.Get("method"); method {
 	case "preconnect":
-		if nr.proxyToNR {
-			nr.proxyPreconnect(w, r)
-		} else {
-			nr.processPreconnect(w, r)
+		bodyBytes, err := ioutil.ReadAll(r.Body)
+		if err != nil {
+			log.Printf("Error reading request body: %v", err)
+			http.Error(w, "Failed to read request", http.StatusBadRequest)
+		return
 		}
+
+		if err := writeToFile("path/to/your/output", bodyBytes); err != nil {
+			log.Printf("Failed to write received data to file: %v", err)
+			http.Error(w, "Failed to write data", http.StatusInternalServerError)
+			return
+		}
+		fallthrough
 	case "connect":
-		if nr.proxyToNR {
-			nr.proxyConnect(w, r)
-		} else {
-			nr.processConnect(w, r)
-		}
+        bodyBytes, err := ioutil.ReadAll(r.Body)
+        if err != nil {
+            log.Printf("Error reading request body: %v", err)
+            http.Error(w, "Failed to read request", http.StatusBadRequest)
+            return
+        }
+
+        if err := writeToFile("path/to/your/output", bodyBytes); err != nil {
+            log.Printf("Failed to write received data to file: %v", err)
+            http.Error(w, "Failed to write data", http.StatusInternalServerError)
+            return
+        }
+        // Assuming r.Body is now empty, you might need to reassign the body if it's used downstream
+        if nr.proxyToNR {
+            nr.proxyConnect(w, r)
+        } else {
+            nr.processConnect(w, r)
+        }
 	case "metric_data":
 		if nr.proxyToNR {
 			nr.proxyRequest(w, r)
@@ -205,28 +270,35 @@ func (nr *NewRelicAgentReceiver) ServeHTTP(w http.ResponseWriter, r *http.Reques
 		// Always
 		nr.processSpanEventRequest(w, r, nr.redirectHost, query)
 	case "":
-		http.Error(w, errors.New("receiver not implemented yet").Error(), http.StatusBadRequest)
+				http.Error(w, errors.New("receiver not implemented yet").Error(), http.StatusBadRequest)
 	default:
-		if nr.proxyToNR {
-			nr.proxyRequest(w, r)
-		} else {
-			fmt.Println("dropping data for " + method)
+				// Potentially process request body or proxy the request as needed.
+				// This block should handle the reading of r.Body and optionally writing to file or further processing.
+				// Ensure proper handling of the body for logging or other purposes.
+			 }
+			 if nr.proxyToNR {
+				nr.proxyRequest(w, r)
+			} else {
+				fmt.Printf("dropping data for %s\n", method)
+			}
 		}
-	}
-}
 
 func transportType(query url.Values) string {
 	if protocol := query.Get("protocol_version"); protocol != "" {
-		return "http_p" + protocol + "_agent"
+		return "http_p" + protocol + "_agent" // Ensure proper string concatenation
 	}
 
 	return "http_unknown_agent"
 }
 
+// processPreconnect is a function that buffers the body of the request and sends a response.
+//
+// w http.ResponseWriter, r *http.Request
+// None
 func (nr *NewRelicAgentReceiver) processPreconnect(w http.ResponseWriter, r *http.Request) {
 	// we need to buffer the body if we want to read it here and send it
 	// in the request.
-	_, err := ioutil.ReadAll(r.Body)
+	_, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -237,10 +309,13 @@ func (nr *NewRelicAgentReceiver) processPreconnect(w http.ResponseWriter, r *htt
 	w.Write([]byte(`{"return_value":{"redirect_host":"localhost"}}`))
 }
 
+// proxyPreconnect buffers the request body and forwards the request to the New Relic staging collector.
+//
+// It takes http.ResponseWriter and *http.Request as parameters. It does not return any value.
 func (nr *NewRelicAgentReceiver) proxyPreconnect(w http.ResponseWriter, r *http.Request) {
 	// we need to buffer the body if we want to read it here and send it
 	// in the request.
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -264,7 +339,7 @@ func (nr *NewRelicAgentReceiver) proxyPreconnect(w http.ResponseWriter, r *http.
 	fmt.Printf("Found content-encoding %v", r.Header.Get("Content-Encoding"))
 	fmt.Println()
 
-	fmt.Printf("-- Forwarding request %+v", proxyReq)
+	fmt.Printf("-- Forwarding request %v", proxyReq)
 	fmt.Println()
 
 	resp, err := nr.httpClient.Do(proxyReq)
@@ -274,11 +349,11 @@ func (nr *NewRelicAgentReceiver) proxyPreconnect(w http.ResponseWriter, r *http.
 	}
 	defer resp.Body.Close()
 
-	fmt.Printf("-- got response %+v", resp)
+	fmt.Printf("-- got response %v", resp)
 	fmt.Println()
 
 	responseBodyReader := processResponseBodyIfNecessary(resp)
-	responseBytes, _ := ioutil.ReadAll(responseBodyReader)
+	responseBytes, _ := io.ReadAll(responseBodyReader)
 	if c, ok := responseBodyReader.(io.Closer); ok {
 		_ = c.Close()
 	}
@@ -300,6 +375,9 @@ func (nr *NewRelicAgentReceiver) proxyPreconnect(w http.ResponseWriter, r *http.
 	w.Write([]byte(`{"return_value":{"redirect_host":"localhost"}}`))
 }
 
+// processConnect processes the connection in the NewRelicAgentReceiver.
+//
+// It takes a http.ResponseWriter and a http.Request as parameters and does not return anything.
 func (nr *NewRelicAgentReceiver) processConnect(w http.ResponseWriter, r *http.Request) {
 	bodyReader := processBodyIfNecessary(r)
 	body, err := io.ReadAll(bodyReader)
@@ -395,10 +473,16 @@ func (nr *NewRelicAgentReceiver) processConnect(w http.ResponseWriter, r *http.R
 	w.Write(replyBytes)
 }
 
+// proxyConnect is a function that handles proxying the incoming request to the specified URL.
+//
+// Parameters:
+//   - w: http.ResponseWriter
+//   - r: *http.Request
+// Return type: None
 func (nr *NewRelicAgentReceiver) proxyConnect(w http.ResponseWriter, r *http.Request) {
 	// we need to buffer the body if we want to read it here and send it
 	// in the request.
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -422,7 +506,7 @@ func (nr *NewRelicAgentReceiver) proxyConnect(w http.ResponseWriter, r *http.Req
 	fmt.Printf("Found content-encoding %v", r.Header.Get("Content-Encoding"))
 	fmt.Println()
 
-	fmt.Printf("-- Forwarding request %+v", proxyReq)
+	fmt.Printf("-- Forwarding request %v", proxyReq)
 	fmt.Println()
 
 	resp, err := nr.httpClient.Do(proxyReq)
@@ -432,11 +516,11 @@ func (nr *NewRelicAgentReceiver) proxyConnect(w http.ResponseWriter, r *http.Req
 	}
 	defer resp.Body.Close()
 
-	fmt.Printf("-- got response %+v", resp)
+	fmt.Printf("-- got response %v", resp)
 	fmt.Println()
 
 	responseBodyReader := processResponseBodyIfNecessary(resp)
-	blob, _ := ioutil.ReadAll(responseBodyReader)
+	blob, _ := io.ReadAll(responseBodyReader)
 	if c, ok := responseBodyReader.(io.Closer); ok {
 		_ = c.Close()
 	}
@@ -476,6 +560,9 @@ func (nr *NewRelicAgentReceiver) proxyConnect(w http.ResponseWriter, r *http.Req
 	}
 }
 
+// processMetricData processes the metric data received by the New Relic agent receiver.
+//
+// It takes the http.ResponseWriter, http.Request, and url.Values as parameters and does not return anything.
 func (nr *NewRelicAgentReceiver) processMetricData(w http.ResponseWriter, r *http.Request, query url.Values) {
 	if nr.metricsConsumer == nil {
 		return
@@ -491,7 +578,7 @@ func (nr *NewRelicAgentReceiver) processMetricData(w http.ResponseWriter, r *htt
 	ctx = obsrecv.StartTracesOp(ctx)
 
 	requestBodyReader := processBodyIfNecessary(r)
-	bodyBytes, _ := ioutil.ReadAll(requestBodyReader)
+	bodyBytes, _ := io.ReadAll(requestBodyReader)
 	if c, ok := requestBodyReader.(io.Closer); ok {
 		_ = c.Close()
 	}
@@ -540,7 +627,7 @@ func (nr *NewRelicAgentReceiver) processMetricData(w http.ResponseWriter, r *htt
 
 	otelMetrics := ilMetrics.Metrics()
 	otelMetrics.EnsureCapacity(len(nrMetricData))
-	for i := 0; i < len(nrMetricData); i++ {
+	for i := 0; i < len(nrMetricData); i {
 		/*
 			[
 				{
@@ -582,6 +669,9 @@ func (nr *NewRelicAgentReceiver) processMetricData(w http.ResponseWriter, r *htt
 	w.Write([]byte(`{"return_value":[]}`))
 }
 
+// mapWebTransactionMetric generates a summary metric for web transaction.
+//
+// It takes in the metrics slice, timesliceMetricName, startTime, endTime, and timesliceMetricData, and does not return anything.
 func mapWebTransactionMetric(metrics *pdata.MetricSlice, timesliceMetricName string, startTime pdata.Timestamp, endTime pdata.Timestamp, timesliceMetricData []interface{}) {
 	metric := metrics.AppendEmpty()
 	metric.SetDataType(pdata.MetricDataTypeSummary)
@@ -620,6 +710,13 @@ func mapWebTransactionMetric(metrics *pdata.MetricSlice, timesliceMetricName str
 	}
 }
 
+// mapExternalMetric maps external metric data to pdata.MetricSlice for the given timesliceMetricName, startTime, endTime, and timesliceMetricData.
+//
+// - metrics: Pointer to pdata.MetricSlice
+// - timesliceMetricName: String representing the name of the timeslice metric
+// - startTime: pdata.Timestamp representing the start time
+// - endTime: pdata.Timestamp representing the end time
+// - timesliceMetricData: Slice of interfaces containing timeslice metric data
 func mapExternalMetric(metrics *pdata.MetricSlice, timesliceMetricName string, startTime pdata.Timestamp, endTime pdata.Timestamp, timesliceMetricData []interface{}) {
 	if strings.HasSuffix(timesliceMetricName, "/all") || strings.HasSuffix(timesliceMetricName, "/allWeb") {
 		return
@@ -659,10 +756,13 @@ func mapExternalMetric(metrics *pdata.MetricSlice, timesliceMetricName string, s
 	}
 }
 
+// proxyRequest is a Go function that proxies a request to a new URL.
+//
+// It takes in the http.ResponseWriter and *http.Request as parameters and does not return any values.
 func (nr *NewRelicAgentReceiver) proxyRequest(w http.ResponseWriter, r *http.Request) {
 	// we need to buffer the body if we want to read it here and send it
 	// in the request.
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -686,7 +786,7 @@ func (nr *NewRelicAgentReceiver) proxyRequest(w http.ResponseWriter, r *http.Req
 	fmt.Printf("Found content-encoding %v", r.Header.Get("Content-Encoding"))
 	fmt.Println()
 
-	fmt.Printf("-- Forwarding request %+v", proxyReq)
+	fmt.Printf("-- Forwarding request %v", proxyReq)
 	fmt.Println()
 
 	resp, err := nr.httpClient.Do(proxyReq)
@@ -696,7 +796,7 @@ func (nr *NewRelicAgentReceiver) proxyRequest(w http.ResponseWriter, r *http.Req
 	}
 	defer resp.Body.Close()
 
-	fmt.Printf("-- got response %+v", resp)
+	fmt.Printf("-- got response %v", resp)
 	fmt.Println()
 
 	responseHeaders := w.Header()
@@ -709,6 +809,9 @@ func (nr *NewRelicAgentReceiver) proxyRequest(w http.ResponseWriter, r *http.Req
 	io.Copy(w, resp.Body)
 }
 
+// processSpanEventRequest processes the span event request.
+//
+// It takes in the http.ResponseWriter, http.Request, collectorHost string, and url.Values as parameters.
 func (nr *NewRelicAgentReceiver) processSpanEventRequest(w http.ResponseWriter, r *http.Request, collectorHost string, query url.Values) {
 	if nr.tracesConsumer == nil {
 		return
@@ -724,7 +827,7 @@ func (nr *NewRelicAgentReceiver) processSpanEventRequest(w http.ResponseWriter, 
 	ctx = obsrecv.StartTracesOp(ctx)
 
 	requestBodyReader := processBodyIfNecessary(r)
-	bodyBytes, _ := ioutil.ReadAll(requestBodyReader)
+	bodyBytes, _ := io.ReadAll(requestBodyReader)
 	if c, ok := requestBodyReader.(io.Closer); ok {
 		_ = c.Close()
 	}
@@ -780,7 +883,7 @@ func (nr *NewRelicAgentReceiver) processSpanEventRequest(w http.ResponseWriter, 
 
 	otelSpans := ilSpans.Spans()
 	otelSpans.EnsureCapacity(len(nrSpanEvents))
-	for i := 0; i < len(nrSpanEvents); i++ {
+	for i := 0; i < len(nrSpanEvents); i {
 		span := otelSpans.AppendEmpty()
 
 		spanAttributes := span.Attributes()
@@ -875,7 +978,7 @@ func (nr *NewRelicAgentReceiver) processSpanEventRequest(w http.ResponseWriter, 
 		startTime, _ := getAndRemove(&spanAttributes, "timestamp")
 		span.SetStartTimestamp(pdata.Timestamp(startTime.IntVal() * 1000 * 1000)) //convert from ms to ns
 		duration, _ := getAndRemove(&spanAttributes, "duration")
-		endTime := startTime.IntVal() + int64(duration.DoubleVal()*1000)
+		endTime := startTime.IntVal()  int64(duration.DoubleVal()*1000)
 		span.SetEndTimestamp(pdata.Timestamp(endTime * 1000 * 1000)) //convert ms to ns
 	}
 
@@ -895,6 +998,9 @@ func (nr *NewRelicAgentReceiver) processSpanEventRequest(w http.ResponseWriter, 
 	w.Write([]byte(`{}`))
 }
 
+// AddNRAttributesToOTelSpan adds New Relic attributes to an OpenTelemetry span.
+//
+// It takes a map of New Relic attribute keys and values, and a map of OpenTelemetry span attributes.
 func AddNRAttributesToOTelSpan(nrSpanEventAttributeMap map[string]interface{}, spanAttributes pdata.AttributeMap) {
 	for nrAttributeKey, nrAttributeValue := range nrSpanEventAttributeMap {
 		switch attributeValue := nrAttributeValue.(type) {
@@ -917,6 +1023,9 @@ func AddNRAttributesToOTelSpan(nrSpanEventAttributeMap map[string]interface{}, s
 	}
 }
 
+// getAndRemove is a function that takes a spanAttributes pointer and a key string, and returns the value and a boolean indicating success.
+//
+// It modifies the spanAttributes by removing the specified key if it exists, and returns the value and a boolean indicating whether the key was found.
 func getAndRemove(spanAttributes *pdata.AttributeMap, key string) (pdata.AttributeValue, bool) {
 	value, ok := spanAttributes.Get(key)
 	if ok {
@@ -926,4 +1035,50 @@ func getAndRemove(spanAttributes *pdata.AttributeMap, key string) (pdata.Attribu
 		spanAttributes.Delete(key)
 	}
 	return value, ok
+}
+
+// writeToFile writes data to a file at the specified filePath.
+//
+// Parameters:
+// filePath string - the path of the file to write to
+// data []byte - the data to be written to the file
+// error - returns an error if there is any issue writing to the file
+func writeToFile(filePath string, data []byte) error {
+    // Extract directory path from filePath
+    dirPath := filepath.Dir(filePath)
+
+    // Ensure the directory exists
+    if err := os.MkdirAll(dirPath, 0755); err != nil {
+        log.Printf("Failed to create directory: %v", err)
+        return err
+    }
+
+    // Write the data
+    if err := ioutil.WriteFile(filePath, data, 0644); err != nil {
+        log.Printf("Failed to write data to file: %v", err)
+        return err
+    }
+    return nil
+}
+
+
+// appendToFile opens or creates the file at the given file path and appends the provided data to it.
+//
+// Parameters:
+// - filePath: a string representing the file path
+// - data: a byte slice containing the data to be appended to the file
+// Return type: error
+func appendToFile(filePath string, data []byte) error {
+	// Open or create the file
+	file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
+
+	// Write the data
+	if _, err := file.Write(data); err != nil {
+		return err
+	}
+	return nil
 }
