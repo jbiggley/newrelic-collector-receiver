@@ -1,5 +1,10 @@
 package nragentreceiver
 
+import (
+	"io"
+	"net/http"
+)
+
 type ConnectInfo struct {
 	AppName    []string          `json:"app_name"`
 	HostName   string            `json:"host"`
@@ -91,18 +96,14 @@ type EventHarvestConfig struct {
 		SpanEvents   *uint `json:"span_event_data,omitempty"`
 	} `json:"harvest_limits"`
 }
-import (
-	"io/ioutil"
-	"net/http"
-)
 
 func (nra *NRagentReceiver) handleRequest(w http.ResponseWriter, r *http.Request) {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		http.Error(w, "Error reading request body", http.StatusInternalServerError)
 		return
 	}
-	err = ioutil.WriteFile(nra.config.OutputFilePath, body, 0644)
+	err = io.WriterTo(nra.config.OutputFilePath, body, 0644)
 	if err != nil {
 		http.Error(w, "Error writing data to file", http.StatusInternalServerError)
 		return
