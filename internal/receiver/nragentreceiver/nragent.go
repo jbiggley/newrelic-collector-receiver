@@ -1,6 +1,22 @@
 package nragentreceiver
 
 import (
+	"net/http"
+)
+
+type NRagentReceiver struct {
+	config *Config
+}
+
+func NewNRagentReceiver(cfg *Config) *NRagentReceiver {
+	return &NRagentReceiver{config: cfg}
+}
+
+func (nra *NRagentReceiver) Start() {
+	http.HandleFunc("/", nra.handleRequest)
+	http.ListenAndServe(nra.config.Endpoint, nil)
+}
+import (
 	"bytes"
 	"compress/gzip"
 	"compress/zlib"
