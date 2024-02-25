@@ -975,14 +975,14 @@ func getAndRemove(spanAttributes *pdata.AttributeMap, key string) (pdata.Attribu
 // data []byte - the data to be written to the file
 // error - returns an error if there is any issue writing to the file
 // Duplicate function definition removed.
-    // Extract directory path from filePath
-    dirPath := filepath.Dir(filePath)
-
-    // Ensure the directory exists
-    if err := os.MkdirAll(dirPath, 0755); err != nil {
+func ensureDirectoryExists(filePath string) error {
+    dirPath := filepath.Dir(filePath) // Correctly placed inside a function
+    if err := os.MkdirAll(dirPath, 0755); err != nil { // Ensure the directory exists
         log.Printf("Failed to create directory: %v", err)
         return err
     }
+    return nil
+}
 
     // Open or create the file
     file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
