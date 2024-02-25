@@ -65,3 +65,4 @@ cmd/otelcol-nr/LocalOTelCollectorTesting.key
 test-app/LocalOTelCollectorTesting.cert
 
 .DS_Store
+.aider*

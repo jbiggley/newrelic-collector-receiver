@@ -51,41 +51,16 @@ type agentMeta struct {
 var _ http.Handler = (*NewRelicAgentReceiver)(nil)
 
 // New creates a new nragentreceiver.NewRelicAgentReceiver reference.
-func New(config *Config) *NewRelicAgentReceiver {
-	r := &NewRelicAgentReceiver{
-		id:         config.ID(),
-		config:     config,
-		httpClient: http.Client{},
-		proxyToNR:  true,
-	}
-	return r
-}
 
 // registerTracesConsumer registers a new traces consumer for the NewRelicAgentReceiver.
 //
 // c consumer.Traces
 // error
-func (nr *NewRelicAgentReceiver) registerTracesConsumer(c consumer.Traces) error {
-	if c == nil {
-		return componenterror.ErrNilNextConsumer
-	}
-
-	nr.tracesConsumer = c
-	return nil
-}
 
 // registerMetricsConsumer registers a metrics consumer for the New Relic Agent Receiver.
 //
 // c consumer.Metrics
 // error
-func (nr *NewRelicAgentReceiver) registerMetricsConsumer(c consumer.Metrics) error {
-	if c == nil {
-		return componenterror.ErrNilNextConsumer
-	}
-
-	nr.metricsConsumer = c
-	return nil
-}
 
 // Start spins up the receiver's HTTP server and makes the receiver start its processing.
 // Start method simplified without OTel dependencies

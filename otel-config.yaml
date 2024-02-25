@@ -16,7 +16,7 @@ receivers:
 exporters:
   logging:  
   otlp:
-    endpoint: staging-otlp.nr-data.net:4317
+    endpoint: otlp.nr-data.net:4317
     headers:
       api-key: ${NEW_RELIC_LICENSE_KEY}
 
