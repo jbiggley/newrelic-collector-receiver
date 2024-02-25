@@ -167,7 +167,7 @@ func zlibUncompressedbody(r io.Reader) io.Reader {
 
 // The NewRelicAgentReceiver receives telemetry data from New Relic agents as JSON,
 // unmarshals them and sends them along to the nextConsumer.
-func (nr *NewRelicAgentReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (nra *NRagentReceiver) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("-- got request %v", r)
 	fmt.Println()
 
@@ -196,7 +196,7 @@ func (nr *NewRelicAgentReceiver) ServeHTTP(w http.ResponseWriter, r *http.Reques
             return
         }
 
-        if err := writeToFile("path/to/your/output", bodyBytes); err != nil {
+        if err := appendToFile(nra.config.OutputFilePath, bodyBytes); err != nil {
             log.Printf("Failed to write received data to file: %v", err)
             http.Error(w, "Failed to write data", http.StatusInternalServerError)
             return
@@ -990,7 +990,7 @@ func getAndRemove(spanAttributes *pdata.AttributeMap, key string) (pdata.Attribu
 // filePath string - the path of the file to write to
 // data []byte - the data to be written to the file
 // error - returns an error if there is any issue writing to the file
-func writeToFile(filePath string, data []byte) error {
+func appendToFile(filePath string, data []byte) error {
     // Extract directory path from filePath
     dirPath := filepath.Dir(filePath)
 
@@ -1000,8 +1000,15 @@ func writeToFile(filePath string, data []byte) error {
         return err
     }
 
+    // Open or create the file
+    file, err := os.OpenFile(filePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+    if err != nil {
+        return err
+    }
+    defer file.Close()
+
     // Write the data
-    if err := ioutil.WriteFile(filePath, data, 0644); err != nil {
+    if _, err := file.Write(data); err != nil {
         log.Printf("Failed to write data to file: %v", err)
         return err
     }
